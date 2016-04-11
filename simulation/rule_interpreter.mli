@@ -3,7 +3,7 @@ open Mods
 
 type t (**Abstract graph*)
 
-type result = Clash | Success of t | Corrected of t
+type result = Clash | Forbidden of t | Success of t | Corrected of t
 
 (** {6 Initialisation} *)
 

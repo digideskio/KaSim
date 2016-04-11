@@ -12,6 +12,7 @@ sig
   val incr_no_more_binary : t -> t
   val incr_no_more_unary : t -> t
   val incr_clashing_instance : t -> t
+  val incr_forbidden_pattern : t -> t
   val incr_time_correction : t -> t
 end =
   struct
@@ -23,7 +24,8 @@ end =
     let no_more_unary = 3
     let clashing_instance = 4
     let time_correction = 5
-    let init () = Array.make 6 0
+    let forbidden_pattern = 6
+    let init () = Array.make 7 0
 
     let nb t = t.(all)
     let nb_consecutive t = t.(consecutive)
@@ -39,6 +41,7 @@ end =
     let incr_no_more_binary t = incr_one t no_more_binary
     let incr_no_more_unary t = incr_one  t no_more_unary
     let incr_clashing_instance t = incr_one t clashing_instance
+    let incr_forbidden_pattern t = incr_one t forbidden_pattern
     let incr_time_correction t = incr_one t time_correction
 
     let print_detail f t =
@@ -52,6 +55,9 @@ end =
       let () = Format.fprintf
                  f "\tClashing instance: %f@,"
                  ((float_of_int t.(clashing_instance)) /. (float_of_int t.(all))) in
+      let () = Format.fprintf
+                 f "\tRule creating a blacklisted pattern: %f@,"
+                 ((float_of_int t.(forbidden_pattern)) /. (float_of_int t.(all))) in
       (*let () =
         Format.fprintf f "\tLazy negative update of non local instances: %f@,"
                        ((float_of_int n) /. (float_of_int t.(all))) in*)
@@ -106,6 +112,10 @@ let one_no_more_unary_event c dt =
   check_time c && check_events c
 let one_clashing_instance_event c dt =
   let () = c.stat_null <- Stat_null_events.incr_clashing_instance c.stat_null in
+  let () = inc_time c dt in
+  check_time c && check_events c
+let one_forbidden_instance_event c dt =
+  let () = c.stat_null <- Stat_null_events.incr_forbidden_pattern c.stat_null in
   let () = inc_time c dt in
   check_time c && check_events c
 let one_time_correction_event c ti =

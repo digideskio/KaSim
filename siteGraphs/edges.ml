@@ -53,6 +53,30 @@ let empty () =
     free_id =(0,[]);
   }
 
+let add_agent_id sigs ty id graph =
+  let ar = Signature.arity sigs ty in
+  let al = Array.make ar None in
+  let ai = Array.make ar None in
+  let () = assert (not graph.outdated) in
+  let () = graph.outdated <- true in
+  match graph.free_id with
+  | new_id,h :: t when h = id ->
+     let missings' = Tools.recti (fun s a -> Int2Set.add (h,s) a)
+				 graph.missings ar in
+     let () = DynArray.set graph.connect h al in
+     let () = DynArray.set graph.state h ai in
+     let () = DynArray.set graph.sort h (Some ty) in
+     {
+       outdated = false;
+       connect = graph.connect;
+       missings = missings';
+       state = graph.state;
+       sort = graph.sort;
+       cache = graph.cache;
+       free_id = (new_id,t);
+     }
+  | _,_ -> assert false
+
 let add_agent sigs ty graph =
   let ar = Signature.arity sigs ty in
   let al = Array.make ar None in
@@ -174,7 +198,9 @@ let get_internal ag s graph =
 let remove_internal ag s graph =
   let () = assert (not graph.outdated) in
   let () = graph.outdated <- true in
+  let i = (DynArray.get graph.state ag).(s) in
   let () = (DynArray.get graph.state ag).(s) <- None in
+  match i with None -> assert false | Some i -> i,
   {
     outdated = false;
     connect = graph.connect;

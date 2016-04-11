@@ -10,6 +10,10 @@ val empty : unit -> t
 val add_agent : Signature.s -> int -> t -> int * t
 (** [add_agent sigs agent_type graph] *)
 
+val add_agent_id : Signature.s -> int -> int -> t -> t
+(** [add_agent_id sigs agent_type id graph] For when you are absolutly
+sure that [id] is available *)
+
 val add_free : int -> int -> t -> t
 (** [add_free agent_id site graph] *)
 
@@ -21,7 +25,7 @@ val add_link : agent -> int -> agent -> int -> t -> t
 
 val remove_agent : int -> t -> t
 val remove_free : int -> int -> t -> t
-val remove_internal : int -> int -> t -> t
+val remove_internal : int -> int -> t -> int * t
 val remove_link : int -> int -> int -> int -> t -> t
 
 val is_agent : agent -> t -> bool

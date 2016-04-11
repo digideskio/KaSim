@@ -73,7 +73,8 @@ let initialize env domain counter graph0 state0 init_l =
 		  counter s (Causal.INIT creations_sort)
 		  compiled_rule with
 	  | Rule_interpreter.Success s -> s
-	  | (Rule_interpreter.Clash | Rule_interpreter.Corrected _) ->
+	  | (Rule_interpreter.Clash | Rule_interpreter.Forbidden _ |
+	     Rule_interpreter.Corrected _) ->
 	     raise (ExceptionDefn.Internal_Error
 		      ("Bugged initial rule",pos)))
 	 state value) graph0 init_l in
@@ -283,6 +284,8 @@ let one_rule dt stop env domain counter graph state =
 	 else Rule_interpreter.adjust_rule_instances
 		~rule_id ~get_alg register_new_activity env counter graph rule),
 	state)
+  | Rule_interpreter.Forbidden graph' ->
+     (not (Counter.one_forbidden_instance_event counter dt)||stop,graph',state)
   | Rule_interpreter.Corrected graph' ->
      let graph'' =
        Rule_interpreter.update_outdated_activities
