@@ -814,6 +814,10 @@ let init_of_ast sigs tok = function
 	raise (ExceptionDefn.Malformed_Decl
 		 (lab ^" is not a declared token",pos))
 
+let constraint_of_ast sigs rule_names (rl,(mix,pos)) =
+  (List.map (fun (_,pos as x) -> NamedDecls.elt_id ~kind:"rule" rule_names x,pos) rl,
+   (mixture_of_ast sigs pos mix,pos))
+
 let compil_of_ast overwrite c =
   let sigs = Signature.create c.Ast.signatures in
   let (_,extra_vars,cleaned_rules) =
@@ -831,6 +835,16 @@ let compil_of_ast overwrite c =
   let tk_nd = NamedDecls.create
 		(Tools.array_map_of_list (fun x -> (x,())) c.Ast.tokens) in
   let tok = tk_nd.NamedDecls.finder in
+  let rule_names =
+    let i = ref (-1) in
+    NamedDecls.create
+      (Tools.array_map_of_list
+	 (function
+	   | Some label,_,_,_,_,_,_,_ -> label,()
+	   | None,_,_,_,_,_,_,_ ->
+	      let () = incr i in
+	      Location.dummy_annot ("__"^string_of_int !i),())
+	 cleaned_rules) in
   sigs,tk_nd,
   {
     Ast.variables =
@@ -855,7 +869,7 @@ let compil_of_ast overwrite c =
 			      add_tk;
 		   r_rate = alg_expr_of_ast sigs tok algs rate;
 		   r_un_rate =
-		     Tools.option_map 
+		     Tools.option_map
 		       (fun (un_rate',dist) ->
 			((alg_expr_of_ast sigs tok algs ?max_allowed_var:None)
 			   un_rate', dist))
@@ -874,4 +888,6 @@ let compil_of_ast overwrite c =
     Ast.tokens = c.Ast.tokens;
     Ast.signatures = c.Ast.signatures;
     Ast.configurations = c.Ast.configurations;
+    Ast.constraints =
+      List.map (constraint_of_ast sigs rule_names) c.Ast.constraints;
   }

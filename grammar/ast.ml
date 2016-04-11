@@ -118,6 +118,7 @@ type ('mixture,'id) instruction =
   | PLOT     of ('mixture,'id) ast_alg_expr Location.annot
   | PERT     of ('mixture,'id) perturbation
   | CONFIG   of configuration
+  | CONSTRAINT of 'id Location.annot list * 'mixture Location.annot
 
 type ('agent,'mixture,'id,'rule) compil =
     {
@@ -144,7 +145,9 @@ type ('agent,'mixture,'id,'rule) compil =
       tokens :
 	string Location.annot list;
       volumes :
-	(string * float * string) list
+	(string * float * string) list;
+      constraints :
+	('id Location.annot list * 'mixture Location.annot) list;
     }
 
 let no_more_site_on_right warning left right =
@@ -176,7 +179,8 @@ let empty_compil =
       perturbations  = [];
       configurations = [];
       tokens         = [];
-      volumes        = []
+      volumes        = [];
+      constraints    = [];
     }
 
 (*
