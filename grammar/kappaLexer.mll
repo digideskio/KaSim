@@ -130,6 +130,7 @@ rule token = parse
 		| "obs" -> OBS
 		| "def" -> CONFIG
 		| "token" -> TOKEN
+		| "blacklist" -> BLACKLIST
 		| _ as s ->
 		   raise (Syntax_Error ("Instruction \""^s^"\" not recognized",
 					Location.of_pos

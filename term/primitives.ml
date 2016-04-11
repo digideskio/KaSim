@@ -79,6 +79,7 @@ type elementary_rule = {
   injected_tokens : (Alg_expr.t * int) list;
   syntactic_rule : int;
   (** [0] means generated for perturbation. *)
+  blacklist : Connected_component.t list;
   instantiations : Instantiation.abstract Instantiation.event;
 }
 

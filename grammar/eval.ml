@@ -12,7 +12,7 @@ let tokenify contact_map counter domain l =
 
 (* transform an LKappa rule into a Primitives rule *)
 let rules_of_ast
-      ?deps_machinery contact_map counter domain ~syntax_ref (rule,_) =
+      ?deps_machinery contact_map counter domain ~syntax_ref blacklists (rule,_) =
   let domain',rm_toks =
     tokenify contact_map counter domain rule.LKappa.r_rm_tokens in
   let domain'',add_toks =
@@ -63,6 +63,7 @@ let rules_of_ast
 	Primitives.consumed_tokens = rm_toks;
 	Primitives.injected_tokens = add_toks;
 	Primitives.syntactic_rule = syntax_ref;
+	Primitives.blacklist = blacklists.(syntax_ref);
 	Primitives.instantiations = syntax;
       } in
   let rule_mixtures,(domain',origin') =
@@ -136,7 +137,7 @@ let cflows_of_label contact_map domain on algs rules (label,pos) rev_effects =
    List.fold_left (fun x (y,t) -> adds t x y) rev_effects ccs)
 
 let effects_of_modif
-      algs ast_algs ast_rules contact_map counter domain ast_list =
+      algs ast_algs ast_rules contact_map counter domain blacklists ast_list =
   let rec iter rev_effects domain ast_list =
     let rule_effect alg_expr (mix,created,rm,add) mix_pos =
       let ast_rule =
@@ -148,7 +149,8 @@ let effects_of_modif
 	Expr.compile_alg contact_map counter domain alg_expr in
       let domain'',_,_,elem_rules =
 	rules_of_ast
-	  contact_map counter domain' ~syntax_ref:0 (ast_rule,mix_pos) in
+	  contact_map counter domain' ~syntax_ref:0
+	  blacklists (ast_rule,mix_pos) in
       let elem_rule = match elem_rules with
 	| [ r ] -> r
 	| _ ->
@@ -230,8 +232,8 @@ let effects_of_modif
   in
   iter [] domain ast_list
 
-let pert_of_result
-      algs algs_deps ast_algs ast_rules contact_map counter domain res =
+let pert_of_result algs algs_deps ast_algs ast_rules contact_map
+		   counter domain blacklists res =
   let (domain, _, lpert, stop_times,tracking_enabled) =
     List.fold_left
       (fun (domain, p_id, lpert, stop_times, tracking_enabled)
@@ -247,8 +249,8 @@ let pert_of_result
 		,pos_pre))
        in
        let (domain, effects) =
-	 effects_of_modif algs ast_algs ast_rules
-			  contact_map counter domain' modif_expr_list in
+	 effects_of_modif algs ast_algs ast_rules contact_map
+			  counter domain' blacklists modif_expr_list in
        let domain,opt,stopping_time =
 	 match opt_post with
 	 | None -> (domain,None,stopping_time)
@@ -296,7 +298,7 @@ let pert_of_result
   let lpert = lpert_stopping_time@lpert_ineq in
   ( domain, lpert,stop_times,tracking_enabled)
 
-let inits_of_result ?rescale contact_map counter env domain res =
+let inits_of_result ?rescale contact_map counter env domain blacklists res =
   let init_l,domain' =
     Tools.list_fold_right_map
       (fun (_opt_vol,alg,init_t) domain -> (*TODO dealing with volumes*)
@@ -319,8 +321,8 @@ let inits_of_result ?rescale contact_map counter env domain res =
 	      LKappa.r_un_rate = None; } in
 	  let domain'',state' =
 	    match
-	      rules_of_ast
-		contact_map counter domain' ~syntax_ref:0 (fake_rule,mix_pos)
+	      rules_of_ast contact_map counter domain' ~syntax_ref:0
+			   blacklists (fake_rule,mix_pos)
 	    with
 	    | domain'',_,_,[ compiled_rule ] ->
 	       (fst alg',compiled_rule,mix_pos),domain''
@@ -339,7 +341,7 @@ let inits_of_result ?rescale contact_map counter env domain res =
 	  match
 	      rules_of_ast
 		contact_map counter domain ~syntax_ref:0
-		(Location.dummy_annot fake_rule)
+		blacklists (Location.dummy_annot fake_rule)
 	    with
 	    | domain'',_,_,[ compiled_rule ] ->
 	       (Alg_expr.CONST (Nbr.I 1),compiled_rule,pos_tk),domain''
@@ -466,13 +468,36 @@ let compile_alg_vars contact_map counter domain vars =
      in (domain',(lbl_pos,alg))) domain
     (Array.of_list vars)
 
-let compile_rules alg_deps contact_map counter domain rules =
+let compile_constraints contact_map domain ast_rules constraints =
+  let out = Array.make (Array.length ast_rules + 1) [] in
+  let domain' =
+    List.fold_left
+      (fun domain (rl,(mix,pos)) ->
+       let domain',ccs =
+	 Snip.connected_components_sum_of_ambiguous_mixture
+	   contact_map domain ~origin:(Operator.PERT(-1)) mix in
+       let glue l =
+	 Tools.list_rev_map_append (function
+				     | [|cc|], _ -> cc
+				     | _, _ ->
+					raise (ExceptionDefn.Malformed_Decl
+						 ("Disconnected forbiden pattern",pos)))
+				   ccs l in
+       let () = match rl with
+	 | [] ->
+	    Array.iteri (fun i x -> out.(i) <- glue x) out
+	 | _ ->
+	    List.iter (fun (i,_) -> out.(i) <- glue out.(i)) rl in
+       domain') domain constraints in
+  domain',out
+
+let compile_rules alg_deps contact_map counter domain blacklists rules =
   match
     List.fold_left
       (fun (domain,syntax_ref,deps_machinery,unary_cc,acc) (_,rule) ->
        let (domain',origin',extra_unary_cc,cr) =
 	 rules_of_ast ?deps_machinery contact_map counter domain
-		      ~syntax_ref rule in
+		      ~syntax_ref blacklists rule in
        (domain',succ syntax_ref,origin',
 	Connected_component.Set.union unary_cc extra_unary_cc,
 	List.append cr acc))
@@ -503,16 +528,19 @@ let initialize logger ?rescale_init sigs_nd tk_nd contact_map counter result =
     compile_alg_vars contact_map counter domain result.Ast.variables in
   let alg_nd = NamedDecls.create alg_a in
   let alg_deps = Alg_expr.setup_alg_vars_rev_dep tk_nd alg_a in
-
   Debug.tag logger "\t -rules";
+  let ast_rules = Array.of_list result.Ast.rules in
+  let domain',blacklists =
+    compile_constraints contact_map domain' ast_rules result.Ast.constraints in
   let (domain',alg_deps',compiled_rules,cc_unaries) =
-    compile_rules alg_deps contact_map counter domain' result.Ast.rules in
+    compile_rules alg_deps contact_map counter domain'
+		  blacklists result.Ast.rules in
   let rule_nd = Array.of_list compiled_rules in
 
   Debug.tag logger "\t -perturbations" ;
   let (domain,pert,stops,has_tracking) =
     pert_of_result alg_nd alg_deps' result.variables result.rules
-		   contact_map counter domain' result in
+		   contact_map counter domain' blacklists result in
   let () =
     if Counter.max_time counter = None && Counter.max_events counter = None &&
 	 not @@
@@ -540,14 +568,14 @@ let initialize logger ?rescale_init sigs_nd tk_nd contact_map counter result =
 
   let env =
     Environment.init sigs_nd tk_nd alg_nd alg_deps'
-		     (Array.of_list result.rules,rule_nd,cc_unaries)
+		     (ast_rules,rule_nd,cc_unaries)
 		     (Array.of_list (List.rev obs)) (Array.of_list pert) in
 
   Debug.tag logger "\t -initial conditions";
   let domain = Connected_component.Env.finalize domain in
   let domain,init_l =
     inits_of_result
-      ?rescale:rescale_init contact_map counter env domain result in
+      ?rescale:rescale_init contact_map counter env domain blacklists result in
   let graph0 = Rule_interpreter.empty ~has_tracking env in
   let state0 = State_interpreter.empty env stops relative_fluxmaps in
   let graph,state =
