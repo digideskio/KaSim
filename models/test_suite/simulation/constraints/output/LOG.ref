@@ -1,0 +1,24 @@
++ Command line is: 'KaSim' '-e' '180' 'triangle.ka' '-d' 'output' '-seed' '68275925'
+Parsing triangle.ka...
+done
++ Initialized random number generator with seed 68275925
++ Sanity checks
++ KaSa tools initialization
++ Compute the contact map
++ Compiling...
++ Building initial simulation conditions...
+	 -simulation parameters
+	 -variable declarations
+	 -rules
+	 -perturbations
+	 -observables
+	 -initial conditions
+	 Done
+____________________________________________________________
+############################################################
+Simulation ended (eff.: 0.526316, detail below)
+	Valid embedding but no longer unary when required: 0.000000
+	Valid embedding but not binary when required: 0.000000
+	Clashing instance: 0.000000
+	Rule creating a blacklisted pattern: 1.000000
+	Perturbation interrupting time advance: 0.000000
