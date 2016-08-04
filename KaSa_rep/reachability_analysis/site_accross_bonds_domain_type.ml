@@ -4,7 +4,7 @@
    * Jérôme Feret & Ly Kim Quyen, projet Abstraction, INRIA Paris-Rocquencourt
    *
    * Creation: 2016, the 31th of March
-   * Last modification: Time-stamp: <Aug 01 2016>
+   * Last modification: Time-stamp: <Aug 04 2016>
    *
    * Abstract domain to record relations between pair of sites in connected agents.
    *
@@ -162,6 +162,35 @@ module PairAgentsSitesStates_map_and_set =
          let compare = compare
          let print _ _ = ()
        end))
+
+(***************************************************************)
+(*Projection*)
+
+module Proj_agent_id_away =
+  Map_wrapper.Proj
+    (PairAgentsSiteState_map_and_set) (*set_a*)
+    (PairAgentSiteState_map_and_set) (*set_b*)
+
+module PairAgentIDSite_map_and_set =
+  Map_wrapper.Make
+    (SetMap.Make
+       (struct
+         type t =
+           (Ckappa_sig.c_agent_id * Ckappa_sig.c_site_name) *
+           (Ckappa_sig.c_agent_id * Ckappa_sig.c_site_name)
+         let compare = compare
+         let print _ _ = ()
+       end))
+
+module Proj_get_agent_id_snd_site =
+  Map_wrapper.Proj
+    (PairAgentsSitesStates_map_and_set)
+    (PairAgentIDSite_map_and_set)
+
+module Proj_get_agents_sites =
+  Map_wrapper.Proj
+    (PairAgentsSitesStates_map_and_set)
+    (PairAgentSiteState_map_and_set)
 
 (***************************************************************)
 
